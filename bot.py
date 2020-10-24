@@ -14,7 +14,7 @@ from telebot.types import ReplyKeyboardRemove
 TOKEN = '' #set token
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
-dev_id = '105988328'
+dev_id = '' #set dev_id
 STATS = {'Nazionale': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-andamento-nazionale-latest.json',
          'Regionale': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-regioni-latest.json',
          'Provincia': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-province-latest.json'}
