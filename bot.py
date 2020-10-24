@@ -11,7 +11,7 @@ from telebot import types
 import requests
 from telebot.types import ReplyKeyboardRemove
 
-TOKEN = '1379711731:AAF-ulR9_cJyCm-tx8Ghzk2K2DtfKfr6kt4'
+TOKEN = '' #set token
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
 dev_id = '105988328'
