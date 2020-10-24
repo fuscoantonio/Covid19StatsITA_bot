@@ -159,6 +159,7 @@ def webhook():
 
 
 if __name__ == "__main__":
-    webhook()
+    #bot.remove_webhook()
     #bot.polling()
+    webhook()
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
