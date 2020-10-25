@@ -1,7 +1,7 @@
 '''
 Created on 24 ott 2020
 @author: Antonio Fusco
-GitHub: fuscoantonio
+GitHub: https://github.com/fuscoantonio/
 '''
 
 import os
@@ -94,7 +94,7 @@ def area_stats(call):
     generic_area = 'denominazione_regione' if '-Regionale' in call.data else 'denominazione_provincia'
     stats = get_stats(option)
     stats = get_specific_stats(choice, stats, generic_area)
-    stats = format_stats(stats, choice)
+    stats = format_stats(stats, option)
     send_stats(call.message, stats)
     
     
@@ -146,11 +146,12 @@ def getMessage():
 @server.route("/")
 def webhook():
     bot.remove_webhook()
-    bot.set_webhook(url='https://covidstats-bot.herokuapp.com/' + TOKEN)
+    bot.set_webhook(url='' + TOKEN) #set webhook url
     return "!", 200
 
 
 if __name__ == "__main__":
+    #enable polling and disable webhook and server to run it locally
     #bot.remove_webhook()
     #bot.polling()
     webhook()
