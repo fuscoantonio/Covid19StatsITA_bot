@@ -1,7 +1,7 @@
 '''
 Created on 24 ott 2020
-
-@author: some idiot
+@author: Antonio Fusco
+GitHub: fuscoantonio
 '''
 
 import os
@@ -9,22 +9,14 @@ from flask import Flask, request
 import telebot
 from telebot import types
 import requests
-from telebot.types import ReplyKeyboardRemove
 
 TOKEN = '' #set token
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
-dev_id = '' #set dev_id
 STATS = {'Nazionale': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-andamento-nazionale-latest.json',
          'Regionale': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-regioni-latest.json',
          'Provincia': 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-province-latest.json'}
 UPDATES = 'https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-note.json'
-is_covidstats_active = False
-is_area_active = False
-current_stats = None
-areas = None
-current_area = None
-current_choice = None
 
 
 @bot.message_handler(commands=['updates'])
@@ -36,89 +28,90 @@ def covid_updates(message):
     except Exception as e:
         print(e)
     
+   
 @bot.message_handler(commands=['covid_stats'])
 def covid_stats(message):
-    global is_covidstats_active
     try:
         bot.send_message(message.chat.id, "Scegli il tipo di statistiche", reply_markup=main_stats_markup())
-        is_covidstats_active = True
     except Exception as e:
         print(e)
         
 
 def main_stats_markup():
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    options = STATS.keys()
-    for i in options:
-        markup.add(types.KeyboardButton(i))
+    markup = types.InlineKeyboardMarkup()
+    for i in STATS.keys():
+        markup.add(types.InlineKeyboardButton(i, callback_data=i))
     return markup
 
 
-def area_stats_markup(choice):
-    global areas, current_area, current_stats
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    current_stats = get_stats(choice)
-    if choice == 'Regionale':
-        current_area = 'denominazione_regione'
-    else:
-        current_area = 'denominazione_provincia'
-    areas = []
-    for i in range(len(current_stats)):
-        areas.append(current_stats[i][current_area])
-        markup.add(types.KeyboardButton(current_stats[i][current_area]))
-    return markup
-    
-
-@bot.message_handler(func=lambda message: is_covidstats_active)
-def select_stats(message):
-    global is_covidstats_active, is_area_active, current_choice
-    if message.text in STATS.keys():
-        current_choice = message.text
-        if message.text == 'Regionale':
-            bot.send_message(message.chat.id, 'Scegli una regione', reply_markup=area_stats_markup(message.text))
-            is_area_active = True
-        elif message.text == 'Provincia':
-            bot.send_message(message.chat.id, 'Scegli una provincia', reply_markup=area_stats_markup(message.text))
-            is_area_active = True
+def area_stats_markup(choice, generic_area):
+    markup = types.InlineKeyboardMarkup()
+    stats = get_stats(choice)
+    ordered_list = []
+    for i in stats:
+        area = i[generic_area]
+        if 'In fase' not in area and 'Fuori Regione' not in area:
+            ordered_list.append(area)
+           
+    counter = 0
+    buttons = [1, 2]        
+    ordered_list = sorted(ordered_list)
+    for area in ordered_list:
+        data = area+ ' -'+ choice
+        if counter < 2:
+            buttons[counter] = types.InlineKeyboardButton(area, callback_data=data)
+            counter += 1
         else:
-            stats = get_stats(message.text)[0]
-            stats = format_stats(stats)
-            send_stats(message, stats)
-    else:
-        try:
-            bot.send_message(message.chat.id, 'Comando non riconosciuto', reply_markup=ReplyKeyboardRemove())
-        except Exception as e:
-            print(e)
-    is_covidstats_active = False
-            
-            
-@bot.message_handler(func=lambda message: is_area_active)
-def select_area(message):
-    global areas, current_area, current_stats
-    if message.text in areas:
-        for i, item in enumerate(current_stats):
-            if message.text == item[current_area]:
-                stats = current_stats[i]
-                break
-        stats = format_stats(stats)
-        send_stats(message, stats)
-    else:
-        try:
-            bot.send_message(message.chat.id, 'Comando non riconosciuto', reply_markup=ReplyKeyboardRemove())
-        except Exception as e:
-            print(e)
-    is_area_active = False
+            markup.add(buttons[0], buttons[1])
+            buttons[0] = types.InlineKeyboardButton(area, callback_data=data)
+            counter = 1
+    return markup
     
     
+@bot.callback_query_handler(func=lambda call: call.data=='Nazionale')
+def nation_stats(call):
+    stats = get_stats(call.data)[0]
+    stats = format_stats(stats, call.data)
+    send_stats(call.message, stats)
+            
+            
+@bot.callback_query_handler(func=lambda call: call.data=='Regionale' or call.data=='Provincia')
+def select_area(call):
+    if call.data == 'Regionale':
+        msg = 'Scegli la regione'
+        generic_area = 'denominazione_regione'
+    else:
+        msg = 'Scegli la provincia'
+        generic_area = 'denominazione_provincia'
+    bot.send_message(call.message.chat.id, msg,
+                     reply_markup=area_stats_markup(call.data, generic_area))
+    
+    
+@bot.callback_query_handler(func=lambda call: '-Regionale' in call.data or '-Provincia' in call.data)
+def area_stats(call):
+    choice = call.data[:call.data.index(' ')]
+    option = 'Regionale' if '-Regionale' in call.data else 'Provincia'
+    generic_area = 'denominazione_regione' if '-Regionale' in call.data else 'denominazione_provincia'
+    stats = get_stats(option)
+    stats = get_specific_stats(choice, stats, generic_area)
+    stats = format_stats(stats, choice)
+    send_stats(call.message, stats)
+    
+    
+def get_specific_stats(choice, stats, generic_area):
+    for item in stats:
+        if choice in item[generic_area]:
+            return item
+
+
 def send_stats(message, stats):
     try:
-        bot.send_message(message.chat.id, stats, reply_markup=ReplyKeyboardRemove())
+        bot.send_message(message.chat.id, stats)
     except Exception as e:
         print(e)
     
 
 def get_stats(choice):
-    global current_stats
     for option in STATS.keys():
         if choice == option:
             try:
@@ -129,10 +122,9 @@ def get_stats(choice):
     return resp
 
 
-def format_stats(stats):
-    global current_choice
+def format_stats(stats, choice):
     formatted_stats = 'dati aggiornati al: ' +str(stats['data']) + '\ntotale_casi: ' + str(stats['totale_casi']) + '\n'
-    if current_choice == 'Nazionale' or current_choice == 'Regionale':
+    if choice == 'Nazionale' or choice == 'Regionale':
         counter = 0
         for i in stats:
             if counter > 5:
@@ -143,7 +135,7 @@ def format_stats(stats):
                 counter += 1
         
     return formatted_stats
-        
+
 
 @server.route('/' + TOKEN, methods=['POST'])
 def getMessage():
