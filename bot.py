@@ -45,18 +45,28 @@ def main_stats_markup():
 
 
 def area_stats_markup(choice, generic_area):
-    markup = types.InlineKeyboardMarkup()
     stats = get_stats(choice)
     ordered_list = []
     for i in stats:
         area = i[generic_area]
         if 'In fase' not in area and 'Fuori Regione' not in area:
             ordered_list.append(area)
-           
-    counter = 0
-    buttons = [1, 2]        
     ordered_list = sorted(ordered_list)
-    for area in ordered_list:
+    markup = add_inline_buttons(ordered_list, choice, 0)
+    if choice == 'Regionale':
+        return markup
+    else:
+        markup2 = add_inline_buttons(ordered_list, choice, 100)
+        return [markup, markup2]
+
+
+def add_inline_buttons(list, choice, start):
+    markup = types.InlineKeyboardMarkup()
+    counter = 0
+    buttons = [1, 2]
+    for index, area in enumerate(list[start:]):
+        if index == 100:
+            break
         data = area+ ' -'+ choice
         if counter < 2:
             buttons[counter] = types.InlineKeyboardButton(area, callback_data=data)
@@ -65,6 +75,8 @@ def area_stats_markup(choice, generic_area):
             markup.add(buttons[0], buttons[1])
             buttons[0] = types.InlineKeyboardButton(area, callback_data=data)
             counter = 1
+            if area == list[-1] and (len(list) % 2) != 0:
+                markup.add(buttons[0])
     return markup
     
     
@@ -80,11 +92,16 @@ def select_area(call):
     if call.data == 'Regionale':
         msg = 'Scegli la regione'
         generic_area = 'denominazione_regione'
+        bot.send_message(call.message.chat.id, msg,
+                         reply_markup=area_stats_markup(call.data, generic_area))
     else:
         msg = 'Scegli la provincia'
         generic_area = 'denominazione_provincia'
-    bot.send_message(call.message.chat.id, msg,
-                     reply_markup=area_stats_markup(call.data, generic_area))
+        markups = area_stats_markup(call.data, generic_area)
+        bot.send_message(call.message.chat.id, msg,
+                     reply_markup=markups[0])
+        bot.send_message(call.message.chat.id, '-',
+                     reply_markup=markups[1])
     
     
 @bot.callback_query_handler(func=lambda call: '-Regionale' in call.data or '-Provincia' in call.data)
@@ -123,16 +140,9 @@ def get_stats(choice):
 
 
 def format_stats(stats, choice):
-    formatted_stats = 'dati aggiornati al: ' +str(stats['data']) + '\ntotale_casi: ' + str(stats['totale_casi']) + '\n'
-    if choice == 'Nazionale' or choice == 'Regionale':
-        counter = 0
-        for i in stats:
-            if counter > 5:
-                if i == 'totale_casi':
-                    continue
-                formatted_stats += i + ': ' + str(stats[i]) + '\n'
-            else:
-                counter += 1
+    formatted_stats = 'dati aggiornati al: ' + str(stats['data']) + '\n'
+    for i in stats:
+        formatted_stats += i + ': ' + str(stats[i]) + '\n'
         
     return formatted_stats
 
@@ -151,8 +161,7 @@ def webhook():
 
 
 if __name__ == "__main__":
-    #enable polling and disable webhook and server to run it locally
-    #bot.remove_webhook()
-    #bot.polling()
-    webhook()
-    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    bot.remove_webhook()
+    bot.polling()
+    #webhook()
+    #server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
