@@ -141,7 +141,9 @@ def get_stats(choice):
 
 def format_stats(stats, choice):
     formatted_stats = 'dati aggiornati al: ' + str(stats['data']) + '\n'
-    for i in stats[1:]:
+    for index, i in enumerate(stats):
+        if index == 0:
+            continue
         formatted_stats += i + ': ' + str(stats[i]) + '\n'
         
     return formatted_stats
